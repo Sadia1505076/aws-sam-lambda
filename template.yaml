@@ -1,24 +1,23 @@
 AWSTemplateFormatVersion: '2010-09-09'
 Transform: AWS::Serverless-2016-10-31
 Description: >
-  Gets a template.docx from s3 and replace the placeholders with template values
+  Gets a template.docx from s3 and replace the placeholders with template values and creates a pdf
   
-# More info about Globals: https://github.com/awslabs/serverless-application-model/blob/master/docs/globals.rst
 Globals:
   Function:
     Timeout: 3
 
 Resources:
-#   EntryApi:
-#     Type: AWS::Serverless::Api
-#     Properties:
-#       Name: EntryApi
-#       StageName: Prod
-#       Auth:
-#         Authorizers:
-#           CognitoAuthorizer:
-#             UserPoolArn: input_your_cognito_arn
-#         DefaultAuthorizer: CognitoAuthorizer
+  EntryApi:
+    Type: AWS::Serverless::Api
+    Properties:
+      Name: EntryApi
+      StageName: Prod
+      Auth:
+        Authorizers:
+          CognitoAuthorizer:
+            UserPoolArn: input_your_cognito_arn
+        DefaultAuthorizer: CognitoAuthorizer
 
   OutputS3Bucket:
     Type: AWS::S3::Bucket
@@ -35,7 +34,7 @@ Resources:
       Description: LibreOffice layer
 
   GenWordDocFunction:
-    Type: AWS::Serverless::Function # More info about Function Resource: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#awsserverlessfunction
+    Type: AWS::Serverless::Function
     Properties:
       CodeUri: GenWordDoc/
       Handler: app.lambdaHandler
@@ -46,13 +45,13 @@ Resources:
         - x86_64
       Events:
         GenWordDoc:
-          Type: Api # More info about API Event Source: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#api
+          Type: Api
           Properties:
-            # RestApiId: !Ref EntryApi
+            RestApiId: !Ref EntryApi
             Path: /gen-word-doc
             Method: get
-            # Auth:
-            #   Authorizer: CognitoAuthorizer
+            Auth:
+              Authorizer: CognitoAuthorizer
       Layers:
         - !Ref LibreOfficeLayer
       Environment:
@@ -82,9 +81,9 @@ Outputs:
     # ServerlessRestApi is an implicit API created out of Events key under Serverless::Function
     # Find out more about other implicit resources you can reference within SAM
     # https://github.com/awslabs/serverless-application-model/blob/master/docs/internals/generated_resources.rst#api
-    Value: !Sub "https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/gen-word-doc/"
+    # Value: !Sub "https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/gen-word-doc/"
     # uncomment this if you want to add cognito
-    # Value: !Sub "https://${EntryApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/gen-word-doc/"
+    Value: !Sub "https://${EntryApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/gen-word-doc/"
   GenWordDocFunction:
     Description: "Hello World Lambda Function ARN"
     Value: !GetAtt GenWordDocFunction.Arn
