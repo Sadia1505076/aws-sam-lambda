@@ -1,0 +1,93 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  Gets a template.docx from s3 and replace the placeholders with template values
+  
+# More info about Globals: https://github.com/awslabs/serverless-application-model/blob/master/docs/globals.rst
+Globals:
+  Function:
+    Timeout: 3
+
+Resources:
+#   EntryApi:
+#     Type: AWS::Serverless::Api
+#     Properties:
+#       Name: EntryApi
+#       StageName: Prod
+#       Auth:
+#         Authorizers:
+#           CognitoAuthorizer:
+#             UserPoolArn: input_your_cognito_arn
+#         DefaultAuthorizer: CognitoAuthorizer
+
+  OutputS3Bucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub 'lambda-write-bucket-${AWS::Region}-${AWS::AccountId}'
+
+  LibreOfficeLayer:
+    Type: AWS::Serverless::LayerVersion
+    Properties:
+      LayerName: LibreOfficeLayer
+      ContentUri: ./libreoffice-layer.zip
+      CompatibleRuntimes:
+        - nodejs20.x
+      Description: LibreOffice layer
+
+  GenWordDocFunction:
+    Type: AWS::Serverless::Function # More info about Function Resource: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#awsserverlessfunction
+    Properties:
+      CodeUri: GenWordDoc/
+      Handler: app.lambdaHandler
+      Runtime: nodejs20.x
+      MemorySize: 512
+      Timeout: 30
+      Architectures:
+        - x86_64
+      Events:
+        GenWordDoc:
+          Type: Api # More info about API Event Source: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#api
+          Properties:
+            # RestApiId: !Ref EntryApi
+            Path: /gen-word-doc
+            Method: get
+            # Auth:
+            #   Authorizer: CognitoAuthorizer
+      Layers:
+        - !Ref LibreOfficeLayer
+      Environment:
+        Variables:
+          READ_BUCKET_NAME: read_bucket_name
+          WRITE_BUCKET_NAME: !Ref OutputS3Bucket
+      Policies:
+        - S3ReadPolicy:
+            BucketName: read_bucket_name
+        - S3WritePolicy:
+            BucketName: !Ref OutputS3Bucket
+
+    Metadata: # Manage esbuild properties
+      BuildMethod: esbuild
+      BuildProperties:
+        Minify: true
+        Target: "es2020"
+        Sourcemap: true
+        EntryPoints: 
+          - app.ts
+Outputs:
+  OutputS3BucketName:
+    Description: "Name of the S3 bucket"
+    Value: !Ref OutputS3Bucket
+  GenWordDocApi:
+    Description: "API Gateway endpoint URL for Prod stage for GenWordDoc function"
+    # ServerlessRestApi is an implicit API created out of Events key under Serverless::Function
+    # Find out more about other implicit resources you can reference within SAM
+    # https://github.com/awslabs/serverless-application-model/blob/master/docs/internals/generated_resources.rst#api
+    Value: !Sub "https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/gen-word-doc/"
+    # uncomment this if you want to add cognito
+    # Value: !Sub "https://${EntryApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/gen-word-doc/"
+  GenWordDocFunction:
+    Description: "Hello World Lambda Function ARN"
+    Value: !GetAtt GenWordDocFunction.Arn
+  GenWordDocFunctionIamRole:
+    Description: "Implicit IAM Role created for Hello World function"
+    Value: !GetAtt GenWordDocFunctionRole.Arn
